@@ -2,65 +2,45 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-from flask import Flask, jsonify, request, send_file, make_response
+from flask import Flask, jsonify, request, send_file
 import io
 
-# ================== 1. 环境自适应配置 ==================
-# 获取当前文件所在目录
+# ================== 1. 关键修改：改用 'web' 目录 ==================
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# 默认 data 目录
+# 以前叫 'web' (被 Vercel 偷走了)，现在改成 'web' (Vercel 不会碰)
+PUBLIC_DIR = os.path.join(BASE_DIR, 'web')
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 
 app = Flask(__name__)
 
 
-# ================== 2. 首页自动寻路 (修复 404) ==================
+# ================== 2. 首页路由 ==================
 @app.route('/')
 def index():
-    # 策略1: 尝试标准路径 public/index.html
-    path1 = os.path.join(BASE_DIR, 'public', 'index.html')
-    if os.path.exists(path1):
-        return send_file(path1)
+    # 策略1: 找 web/index.html
+    path = os.path.join(PUBLIC_DIR, 'index.html')
+    if os.path.exists(path):
+        return send_file(path)
 
-    # 策略2: 有时候 vercel 会把 public 里的东西平铺到根目录
-    path2 = os.path.join(BASE_DIR, 'index.html')
-    if os.path.exists(path2):
-        return send_file(path2)
-
-    # 策略3: 真的找不到？打印目录结构给你看，方便调试
-    files_in_root = os.listdir(BASE_DIR)
-    public_exists = os.path.exists(os.path.join(BASE_DIR, 'public'))
-    files_in_public = os.listdir(os.path.join(BASE_DIR, 'public')) if public_exists else "无 public 目录"
-
+    # 策略2: 如果还是找不到，打印目录帮你找原因
     return f"""
-    <div style="padding:20px; font-family:sans-serif;">
-        <h1 style="color:red">⚠️ 首页文件未找到 (404)</h1>
-        <p>后端运行正常 (/api/sales 可用)，但找不到 index.html。</p>
+    <div style="padding:20px;">
+        <h1 style="color:red">⚠️ 还是找不到 index.html</h1>
+        <p>当前代码在找: {path}</p>
+        <p>服务器上的文件夹列表: {os.listdir(BASE_DIR)}</p>
+        <p>web 文件夹里有: {os.listdir(PUBLIC_DIR) if os.path.exists(PUBLIC_DIR) else 'web 文件夹不存在'}</p>
         <hr>
-        <h3>🔍 服务器目录侦探:</h3>
-        <ul>
-            <li>当前路径 (BASE_DIR): {BASE_DIR}</li>
-            <li>根目录文件: {files_in_root}</li>
-            <li>Public 目录文件: {files_in_public}</li>
-        </ul>
-        <p>请根据上面的列表，检查 index.html 到底去哪了。</p>
+        <h3>请确认你是否已经把 public 文件夹重命名为 web 并上传了？</h3>
     </div>
     """
 
 
-# ================== 3. 智能数据读取 (兼容 CSV/Excel) ==================
+# ================== 3. 智能数据读取 (保持不变) ==================
 def smart_load(keyword):
-    """不论文件名后缀是什么，只要包含关键词就尝试读取"""
-    if not os.path.exists(DATA_DIR):
-        return None
-
+    if not os.path.exists(DATA_DIR): return None
     target = next((f for f in os.listdir(DATA_DIR) if keyword in f), None)
-    if not target:
-        return None
-
+    if not target: return None
     path = os.path.join(DATA_DIR, target)
-
-    # 优先尝试 Excel，失败则尝试 CSV
     try:
         return pd.read_excel(path, engine='openpyxl')
     except:
@@ -70,7 +50,6 @@ def smart_load(keyword):
             return pd.read_csv(path, encoding='gbk')
 
 
-# 辅助序列化
 def safe_serialize(obj):
     if isinstance(obj, (np.integer, np.int64)): return int(obj)
     if isinstance(obj, (np.floating, np.float64)): return float(obj)
@@ -83,11 +62,10 @@ def to_records(df):
     return [{k: safe_serialize(v) for k, v in r.items()} for r in df.fillna("无").to_dict('records')]
 
 
-# ================== 4. API 接口 ==================
+# ================== 4. API 接口 (保持不变) ==================
 
 @app.route('/api/sales')
 def api_sales():
-    # 纯逻辑，不读文件，用来测试后端是否存活
     try:
         data_str = "2024 年 Q1-Q4 各月销售额（元）：15800 23500 19200 28600 31200 27800 35400 42100 38900 45600 39800 51200"
         sales = [int(x) for x in data_str.split("：")[1].strip().split()]
@@ -147,37 +125,26 @@ def api_hr():
         df = smart_load("4-1")
         if df is None: return jsonify({"status": "error", "msg": "找不到人事数据文件"})
         df.columns = df.columns.str.strip()
-
-        # 简单逻辑，防止字段缺失报错
         raw = {"shape": df.shape, "cols": df.columns.tolist(), "head": df.head(5), "tail": df.tail(5)}
         df_dedup = df.drop_duplicates().copy()
-
-        # 增加
         new_emp = pd.DataFrame([{'工号': 'GH993', '姓名': '张子涵', '性别': '男', '应发工资': 12000, '学历': '硕士',
                                  '在职状态': '在职', '手机号': '187XXXXX537', '出生年月': 19950512,
                                  '入职日期': 20250718, '年龄': 30, '工龄': 0, '籍贯': '陕西'}])
         df_final = pd.concat([df_dedup, new_emp], ignore_index=True)
-
-        # 删除
         if '年龄' in df_final.columns:
             df_final['年龄'] = pd.to_numeric(df_final['年龄'], errors='coerce')
             df_final = df_final[
                 ~((df_final['年龄'] > 55) & (df_final['在职状态'] == '离职') & (df_final['性别'] == '男'))]
 
-        stats = {
-            "leaver_ratio": "5.2%",
-            "salary_max": 20000, "salary_min": 3000,
-            "edu_ratio": {"本科": 60, "硕士": 40}
-        }
-        # 尝试真实计算
-        if '在职状态' in df_dedup.columns:
-            stats['leaver_ratio'] = f"{(df_dedup['在职状态'].value_counts().get('离职', 0) / len(df_dedup)):.2%}"
+        stats = {"leaver_ratio": "5.2%", "salary_max": 20000, "salary_min": 3000, "edu_ratio": {"本科": 60, "硕士": 40}}
+        if '在职状态' in df_dedup.columns: stats[
+            'leaver_ratio'] = f"{(df_dedup['在职状态'].value_counts().get('离职', 0) / len(df_dedup)):.2%}"
         if '应发工资' in df_dedup.columns:
             nums = pd.to_numeric(df_dedup['应发工资'], errors='coerce')
             stats['salary_max'] = nums.max();
             stats['salary_min'] = nums.min()
-        if '学历' in df_dedup.columns:
-            stats['edu_ratio'] = df_dedup['学历'].value_counts(normalize=True).mul(100).round(2).to_dict()
+        if '学历' in df_dedup.columns: stats['edu_ratio'] = df_dedup['学历'].value_counts(normalize=True).mul(
+            100).round(2).to_dict()
 
         return jsonify({
             "status": "success",
@@ -186,7 +153,7 @@ def api_hr():
                 "columns": raw['cols'],
                 "head_10": to_records(raw['head']),
                 "tail_10": to_records(raw['tail']),
-                "groupby_salary": [],  # 简化
+                "groupby_salary": [],
                 "duplicates_count": int(df.duplicated().sum()),
                 "shape_after_dedup": [int(df_dedup.shape[0]), int(df_dedup.shape[1])],
                 "leaver_ratio": stats['leaver_ratio'],
