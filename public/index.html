@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Python 数据分析 A卷 | 答卷演示</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        /* 使用衬线字体，更像试卷 */
+        body { font-family: 'Inter', 'Noto Serif SC', serif; background-color: #f3f4f6; color: #1e293b; }
+        .paper-card { background: white; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+        .question-title { font-family: 'Noto Serif SC', serif; font-size: 1.25rem; font-weight: 700; border-bottom: 2px solid #3b82f6; padding-bottom: 8px; margin-bottom: 16px; color: #1e3a8a; }
+        .sub-question { font-weight: 700; color: #475569; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 0.95rem; background: #f1f5f9; padding: 6px 12px; border-radius: 4px; }
+        .score-badge { background: #fee2e2; color: #b91c1c; font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecaca; }
+        .result-box { border: 1px dashed #cbd5e1; padding: 12px; border-radius: 6px; background: #f8fafc; font-family: monospace; font-size: 0.9rem; }
+        .nav-btn { padding: 10px 20px; font-weight: 600; color: #64748b; border-bottom: 3px solid transparent; transition: all 0.2s; }
+        .nav-btn.active { color: #2563eb; border-color: #2563eb; background: #eff6ff; }
+        table { font-size: 0.8rem; width: 100%; border-collapse: collapse; }
+        th { background: #e2e8f0; padding: 6px; text-align: left; font-weight: 600; border: 1px solid #cbd5e1; }
+        td { padding: 6px; border: 1px solid #cbd5e1; }
+    </style>
+</head>
+<body>
+    <div id="app" class="max-w-7xl mx-auto px-4 py-8">
+        <header class="mb-8 flex justify-between items-end border-b pb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">西安财经大学 课程考核试卷（A）</h1>
+                <p class="text-sm text-slate-500 mt-1">2025-2026-1 学期 | Python数据分析与应用 | 大作业展示</p>
+            </div>
+            <div class="text-right">
+                <div class="text-sm font-bold text-slate-400">总分</div>
+                <div class="text-3xl font-bold text-red-600 font-serif">100分</div>
+            </div>
+        </header>
+
+        <nav class="flex bg-white rounded-lg shadow-sm border mb-8 overflow-x-auto">
+            <button v-for="tab in tabs" :key="tab.id" @click="currentTab=tab.id" class="nav-btn flex-1 whitespace-nowrap" :class="{active:currentTab===tab.id}">
+                {{ tab.name }}
+            </button>
+        </nav>
+
+        <div v-if="loading" class="text-center py-12 text-blue-600 font-bold">正在计算试卷数据...</div>
+        <div v-if="error" class="bg-red-50 text-red-700 p-4 rounded border border-red-200 mb-6">❌ 连接后端失败，请检查 run.py</div>
+
+        <div v-if="!loading && currentTab==='q1' && q1" class="paper-card">
+            <h2 class="question-title">一、第1大题 (20分) - 销售数据处理</h2>
+
+            <div class="mb-6">
+                <div class="sub-question"><span>(1) 从字符串中提取所有销售额数据 [4分]</span></div>
+                <div class="result-box break-all">{{ q1.raw_data.join(', ') }}</div>
+            </div>
+
+            <div class="mb-6">
+                <div class="sub-question"><span>(2) 计算该店铺2024年的年销售额总和 [4分]</span></div>
+                <div class="result-box text-lg font-bold text-blue-700">总销售额: {{ q1.total }} 元</div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <div class="sub-question"><span>(3) 找出全年销售额最高的月份 [2分]</span></div>
+                    <div class="result-box">{{ q1.max.month }}月 (金额: {{q1.max.value}})</div>
+                </div>
+                <div>
+                    <div class="sub-question"><span>(3) 找出全年销售额最低的月份 [2分]</span></div>
+                    <div class="result-box">{{ q1.min.month }}月 (金额: {{q1.min.value}})</div>
+                </div>
+            </div>
+
+            <div>
+                <div class="sub-question"><span>(4) 计算季度平均销售额 [4分]</span></div>
+                <div class="grid grid-cols-4 gap-2 text-center mt-2">
+                    <div v-for="(v,k) in q1.quarter_avg" class="bg-slate-50 border p-2 rounded">
+                        <div class="text-xs font-bold text-slate-400">{{k}}</div>
+                        <div class="font-bold">{{v}}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="!loading && currentTab==='q2' && q2" class="paper-card">
+            <h2 class="question-title">二、第2大题 (20分) - 财务收支管理</h2>
+
+            <div class="mb-6">
+                <div class="sub-question"><span>(2) 计算并打印出总收入、总支出和当月结余 [6分]</span></div>
+                <div class="flex gap-4 result-box">
+                    <div class="text-green-600">总收入: +{{q2.summary.income}}</div>
+                    <div class="text-red-600">总支出: -{{q2.summary.expense}}</div>
+                    <div class="text-blue-600 font-bold">结余: {{q2.summary.balance}}</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                    <div class="sub-question"><span>(1) & (4) 创建记账本并打印所有记录 [8分]</span></div>
+                    <div class="h-64 overflow-y-auto border"><table class="w-full">
+                        <thead><tr><th>日期</th><th>描述</th><th>金额</th><th>类型</th></tr></thead>
+                        <tbody><tr v-for="r in q2.all_records"><td>{{r.日期}}</td><td>{{r.描述}}</td><td>{{r.金额}}</td><td>{{r.类型}}</td></tr></tbody>
+                    </table></div>
+                </div>
+                <div>
+                    <div class="sub-question"><span>(3) 筛选并打印出所有“支出”类型的交易 [6分]</span></div>
+                    <div class="h-64 overflow-y-auto border border-red-200"><table class="w-full">
+                        <thead class="bg-red-50 text-red-700"><tr><th>日期</th><th>描述</th><th>金额</th></tr></thead>
+                        <tbody><tr v-for="r in q2.expense_records"><td>{{r.日期}}</td><td>{{r.描述}}</td><td class="text-red-600">{{r.金额}}</td></tr></tbody>
+                    </table></div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="!loading && currentTab==='q3'" class="paper-card">
+            <h2 class="question-title">三、第3大题 (20分) - 个人所得税计算器</h2>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <div class="sub-question"><span>(1) 用户输入 (包含验证) [6分]</span></div>
+                    <div class="bg-slate-50 p-4 rounded border space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="text-xs">月收入 <input v-model="q3In.income" type="number" class="w-full border p-1 rounded"></label>
+                            <label class="text-xs">三险一金 <input v-model="q3In.insurance" type="number" class="w-full border p-1 rounded"></label>
+                            <label class="text-xs">专项扣除 <input v-model="q3In.special" type="number" class="w-full border p-1 rounded"></label>
+                            <label class="text-xs">其他 <input v-model="q3In.other" type="number" class="w-full border p-1 rounded"></label>
+                        </div>
+                        <button @click="calcTax" class="w-full bg-blue-600 text-white text-sm font-bold py-2 rounded">重新计算</button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="sub-question"><span>(2) & (3) 计算逻辑与结果输出 [14分]</span></div>
+                    <div v-if="q3Out" class="result-box space-y-2">
+                        <div class="flex justify-between"><span>月应纳税所得额:</span> <b>{{q3Out.taxable_month}}</b></div>
+                        <div class="flex justify-between"><span>全年应纳税所得额:</span> <b>{{q3Out.taxable_year}}</b></div>
+                        <div class="flex justify-between text-yellow-700"><span>全年应纳税额:</span> <b>{{q3Out.tax_year.toFixed(2)}}</b></div>
+                        <div class="flex justify-between text-red-600 border-t pt-1"><span>月度税额:</span> <b>{{q3Out.tax_month.toFixed(2)}}</b></div>
+                        <div class="flex justify-between text-green-600 text-lg"><span>税后收入:</span> <b>{{q3Out.net_income.toFixed(2)}}</b></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="!loading && currentTab==='q4' && q4" class="paper-card">
+            <h2 class="question-title">四、第4大题 (20分) - 人事财务数据分析</h2>
+
+            <div class="grid grid-cols-2 gap-6 mb-6">
+                <div>
+                    <div class="sub-question"><span>(1) 导入并显示前10/后10行, 行列数 [2分]</span></div>
+                    <div class="result-box mb-2">行数: {{q4.shape[0]}}, 列数: {{q4.shape[1]}}</div>
+                    <div class="h-32 overflow-y-auto border"><table class="w-full">
+                        <thead><tr><th v-for="c in q4.columns">{{c}}</th></tr></thead>
+                        <tbody><tr v-for="r in q4.head_10"><td v-for="c in q4.columns">{{r[c]}}</td></tr></tbody>
+                    </table></div>
+                </div>
+                <div>
+                    <div class="sub-question"><span>(2) Groupby 学历性别平均工资 [3分]</span></div>
+                    <div class="h-40 overflow-y-auto border"><table class="w-full">
+                        <thead><tr><th>学历</th><th>性别</th><th>平均工资</th></tr></thead>
+                        <tbody><tr v-for="r in q4.groupby_salary"><td>{{r.学历}}</td><td>{{r.性别}}</td><td>{{r.应发工资}}</td></tr></tbody>
+                    </table></div>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <div class="sub-question"><span>(3) 处理缺失值(替换为无)与重复值 [3分]</span></div>
+                <div class="result-box flex gap-4">
+                    <span>重复值: {{q4.duplicates_count}} (已删)</span>
+                    <span>去重后规模: {{q4.shape_after_dedup[0]}}行</span>
+                    <span>缺失值: 已替换为"无"</span>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <div class="sub-question"><span>(4) 增删改查操作 [10分]</span></div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4 text-sm">
+                    <div class="bg-slate-50 p-2 border">① 离职占比: <b>{{q4.leaver_ratio}}</b></div>
+                    <div class="bg-slate-50 p-2 border">② 工资极值: {{q4.salary_max}} / {{q4.salary_min}}</div>
+                    <div class="bg-slate-50 p-2 border">③ 学历: <span v-for="(v,k) in q4.edu_ratio" class="mr-1">{{k}}({{v}}%)</span></div>
+                    <div class="bg-slate-50 p-2 border text-red-600">⑤ 删除: {{q4.delete_count}}人</div>
+                </div>
+
+                <div class="border rounded p-3 bg-slate-50">
+                    <h4 class="font-bold text-sm mb-2 text-blue-700">最终处理后数据预览 (验证④增加和⑤删除结果):</h4>
+                    <p class="text-xs text-slate-500 mb-2">显示前5行和后5行 (注意观察最后一行新增的GH993)</p>
+                    <div class="overflow-x-auto"><table class="w-full text-xs whitespace-nowrap bg-white">
+                        <thead><tr><th v-for="c in q4.columns">{{c}}</th></tr></thead>
+                        <tbody>
+                            <tr v-for="r in q4.final_head"><td v-for="c in q4.columns">{{r[c]}}</td></tr>
+                            <tr><td :colspan="q4.columns.length" class="text-center bg-gray-100">... (中间数据省略) ...</td></tr>
+                            <tr v-for="r in q4.final_tail" class="bg-yellow-50"><td v-for="c in q4.columns">{{r[c]}}</td></tr>
+                        </tbody>
+                    </table></div>
+                </div>
+            </div>
+
+            <div>
+                <div class="sub-question"><span>(5) 导出处理后的结果数据 [2分]</span></div>
+                <a href="/api/hr/export" target="_blank" class="inline-block bg-green-600 text-white px-4 py-2 rounded text-sm font-bold shadow hover:bg-green-700">
+                    📥 下载 Excel (4-1_Result.xlsx)
+                </a>
+            </div>
+        </div>
+
+        <div v-if="!loading && currentTab==='q5' && q5" class="paper-card">
+            <h2 class="question-title">五、第5大题 (20分) - 人口数据可视化</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="border p-2 rounded">
+                    <div class="text-center text-xs font-bold text-slate-500 mb-2">(1) 城乡柱状图 [5分]</div>
+                    <div id="c1" style="height:300px;"></div>
+                </div>
+                <div class="border p-2 rounded">
+                    <div class="text-center text-xs font-bold text-slate-500 mb-2">(2) 男女比例饼图 [5分]</div>
+                    <div id="c2" style="height:300px;"></div>
+                </div>
+                <div class="border p-2 rounded">
+                    <div class="text-center text-xs font-bold text-slate-500 mb-2">(3) 趋势折线图 [5分]</div>
+                    <div id="c3" style="height:300px;"></div>
+                </div>
+                <div class="border p-2 rounded">
+                    <div class="text-center text-xs font-bold text-slate-500 mb-2">(4) 散点图 [5分]</div>
+                    <div id="c4" style="height:300px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, nextTick, watch } = Vue;
+        createApp({
+            setup() {
+                const currentTab = ref('q1');
+                const tabs = [
+                    {id:'q1',name:'第一题 (20分)'}, {id:'q2',name:'第二题 (20分)'}, {id:'q3',name:'第三题 (20分)'},
+                    {id:'q4',name:'第四题 (20分)'}, {id:'q5',name:'第五题 (20分)'}
+                ];
+                const loading=ref(true), error=ref(false);
+                const q1=ref(null), q2=ref(null), q4=ref(null), q5=ref(null);
+                const q3In=ref({income:15000, insurance:2000, special:1500, other:0});
+                const q3Out=ref(null);
+
+                const load = async () => {
+                    try {
+                        const [r1,r2,r4,r5] = await Promise.all([
+                            fetch('/api/sales').then(r=>r.json()), fetch('/api/finance').then(r=>r.json()),
+                            fetch('/api/hr').then(r=>r.json()), fetch('/api/population').then(r=>r.json())
+                        ]);
+                        q1.value=r1; q2.value=r2; q4.value=r4.data; q5.value=r5;
+                        calcTax();
+                    } catch(e) { error.value=true; } finally { loading.value=false; }
+                };
+                const calcTax = async () => {
+                    const r = await fetch('/api/tax',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q3In.value)});
+                    const d = await r.json(); q3Out.value=d.data;
+                };
+                const render = () => {
+                    setTimeout(() => {
+                        if(!q5.value || !document.getElementById('c1')) return;
+                        const d = q5.value;
+                        echarts.init(document.getElementById('c1')).setOption({tooltip:{trigger:'axis'},xAxis:{data:d.years},yAxis:{},series:[{type:'bar',data:d.urban,name:'城'},{type:'bar',data:d.rural,name:'乡'}]});
+                        echarts.init(document.getElementById('c2')).setOption({tooltip:{trigger:'item'},series:[{type:'pie',data:d.pie_2022}]});
+                        echarts.init(document.getElementById('c3')).setOption({tooltip:{trigger:'axis'},xAxis:{data:d.years},yAxis:{scale:true},series:[{type:'line',data:d.urban},{type:'line',data:d.rural}]});
+                        echarts.init(document.getElementById('c4')).setOption({tooltip:{},xAxis:{scale:true},yAxis:{scale:true},series:[{type:'scatter',data:d.total.map((t,i)=>[t,d.urban[i]])}]});
+                    }, 200);
+                };
+                watch(currentTab, v=>{if(v==='q5') render()});
+                onMounted(load);
+                return {currentTab, tabs, loading, error, q1, q2, q3In, q3Out, q4, q5, calcTax};
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
