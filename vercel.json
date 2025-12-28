@@ -2,10 +2,7 @@
   "builds": [
     {
       "src": "run.py",
-      "use": "@vercel/python",
-      "config": {
-        "includeFiles": "public/**"
-      }
+      "use": "@vercel/python"
     }
   ],
   "routes": [
